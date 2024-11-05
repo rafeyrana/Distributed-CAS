@@ -24,18 +24,16 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 type TCPTransport struct {
 	listenAddress string
 	listener net.Listener
-
+	HandshakeFunc HandshakeFunc
 	mu sync.RWMutex // protects peers
 	peers map[net.Addr]Peer
 
 }
 
 
-
-
-
 func NewTCPTransport(listenAddress string) *TCPTransport {
 	return &TCPTransport{
+		HandshakeFunc: NOPHandshakeFunc,
 		listenAddress: listenAddress,
 		peers: make(map[net.Addr]Peer),
 	}
