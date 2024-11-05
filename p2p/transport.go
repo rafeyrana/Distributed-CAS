@@ -4,6 +4,8 @@ package p2p
 
 // Peer is an interface that represents the remote connected node
 type Peer interface{
+	ListenAndAccept() error
+	
 
 }
 
