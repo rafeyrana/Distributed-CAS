@@ -3,9 +3,10 @@ import (
 	"net"
 	"sync"
 	"fmt"
+	"errors"
 )
 
-// represents the remor node over a TCp established connecion
+// represents the remote node over a TCp established connecion
 type TCPPeer struct {
 	conn net.Conn
 	outbound bool // outbound peer if we are the one who initiated the connection (true) but if we accept it is an inbound peer
@@ -20,11 +21,6 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 }
 
 
-type TCPTransport struct {
-	TCPTransportOpts
-	listener net.Listener
-	rpcch    chan RPC
-}
 type TCPTransport struct {
 	listenAddress string
 	listener net.Listener
@@ -69,13 +65,13 @@ func (t *TCPTransport) startAcceptLoop() {
 		if err != nil {
 			fmt.Printf("TCP accept error: %s\n", err)
 		}
-
 		go t.handleConn(conn)
 	}
 }
 
 
 func (t *TCPTransport) handleConn(conn net.Conn) {
+	// peer := NewTCPPeer(conn, true)
 	fmt.Println("new incoming connection:", conn)
 	// peer := NewTCPPeer(conn)
 	// t.addPeer(peer)

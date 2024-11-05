@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	
 )
 
 func TestTCPTransport(t *testing.T) {
@@ -16,4 +17,5 @@ func TestTCPTransport(t *testing.T) {
 	assert.Equal(t, tr.ListenAddr, ":3000")
 
 	assert.Nil(t, tr.ListenAndAccept())
+	select{}
 }
