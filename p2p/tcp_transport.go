@@ -71,7 +71,7 @@ func (t *TCPTransport) startAcceptLoop() {
 		if err != nil {
 			fmt.Printf("TCP accept error: %s\n", err)
 		}
-		fmt.Println("new incoming connection: %s\n", conn)
+		fmt.Printf("new incoming connection: %s\n", conn)
 		go t.handleConn(conn)
 	}
 }
@@ -96,12 +96,15 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 			fmt.Printf("tcp error in decoding : failed to read from peer: %s\n", err)
 			continue
 		}
+
+
+		msg.From = conn.RemoteAddr()
 		fmt.Printf("message received from peer: %+v\n", msg)
 	
 	}
 
 
-	fmt.Println("new incoming connection:", conn)
+	// fmt.Println("new incoming connection:", conn)
 	// peer := NewTCPPeer(conn)
 	// t.addPeer(peer)
 	// return nil
