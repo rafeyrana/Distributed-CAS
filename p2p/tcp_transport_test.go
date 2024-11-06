@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	
+
 )
 
 func TestTCPTransport(t *testing.T) {
 	opts := TCPTransportOpts{
 		ListenAddr:    ":3000",
-		HandshakeFunc: NOPHandshakeFunc,
+		HandShakeFunc: NOPHandShakeFunc,
 		Decoder:       DefaultDecoder{},
 	}
 	tr := NewTCPTransport(opts)

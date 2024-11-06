@@ -1,21 +1,23 @@
 package main
 
 import (
-	"fmt"
-	"github.com/rafeyrana/Distributed-CAS/p2p"
-	"log"
-
+    "fmt"
+    "log"
+    "github.com/rafeyrana/Distributed-CAS/p2p"
 )
 
-func main(){
-	tr := p2p.NewTCPTransport(":3000")
+func main() {
+    tcpOpts := p2p.TCPTransportOpts{
+        ListenAddress: ":3000",
+        HandShakeFunc: p2p.NOPHandShakeFunc,
+        Decoder: &p2p.GOBDecoder{},
+    }
+    tr := p2p.NewTCPTransport(tcpOpts)
 
+    if err := tr.ListenAndAccept(); err != nil {
+        log.Fatal(err)
+    }
 
-	if err := tr.ListenAndAccept(); err != nil{
-		log.Fatal(err)
-	}
-
-
-	select {}
-	fmt.Println("Hello, World!")
+    fmt.Printf("TCP transport listening on %s\n", tcpOpts.ListenAddress)
+    select {} // Block forever
 }
