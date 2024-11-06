@@ -96,8 +96,9 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 			fmt.Printf("tcp error in decoding : failed to read from peer: %s\n", err)
 			continue
 		}
+		fmt.Printf("message received from peer: %+v\n", msg)
+	
 	}
-	fmt.Printf("message received from peer: %s\n", msg)
 
 
 	fmt.Println("new incoming connection:", conn)
