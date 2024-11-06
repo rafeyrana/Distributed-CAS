@@ -14,6 +14,14 @@ func main() {
     }
     tr := p2p.NewTCPTransport(tcpOpts)
 
+
+    go func(){
+		for {
+			msg := <- tr.Consume()
+			fmt.Println("%+v\n", msg)
+		}
+	}()
+
     if err := tr.ListenAndAccept(); err != nil {
         log.Fatal(err)
     }

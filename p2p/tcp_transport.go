@@ -39,14 +39,14 @@ func (p *TCPPeer) Close() error {
 }
 // Consume is the implmenetation for the transport interface which will return a read only channel for reading the incoming messages
 func (t *TCPTransport) Consume() <-chan RPC {
-	return t.rpcchan
+	return t.rpcch
 }
 
 type TCPTransport struct {
 	TCPTransportOpts
 	listener net.Listener
 
-	rpcchan chan RPC
+	rpcch chan RPC
 	mu sync.RWMutex // protects peers
 	peers map[net.Addr]Peer
 
@@ -56,7 +56,7 @@ type TCPTransport struct {
 func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
-		rpcchan: make(chan RPC),
+		rpcch: make(chan RPC),
 	}
 }
 
@@ -112,8 +112,8 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 
 
 		rpc.From = conn.RemoteAddr()
-		// t.rpcchan <- rpc
-		fmt.Printf("message received from peer: %+v\n", rpc)
+		t.rpcch <- rpc
+		// fmt.Printf("message received from peer: %+v\n", rpc)
 	
 	}
 
