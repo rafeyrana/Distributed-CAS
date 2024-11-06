@@ -21,6 +21,7 @@ type TCPTransportOpts struct {
 	ListenAddress string
 	HandShakeFunc HandShakeFunc
 	Decoder Decoder
+	OnPeer func(Peer) error
 
 
 }
@@ -45,11 +46,7 @@ func (t *TCPTransport) Consume() <-chan RPC {
 type TCPTransport struct {
 	TCPTransportOpts
 	listener net.Listener
-
 	rpcch chan RPC
-	mu sync.RWMutex // protects peers
-	peers map[net.Addr]Peer
-
 }
 
 
@@ -92,7 +89,15 @@ func (t *TCPTransport) startAcceptLoop() {
 
 
 func (t *TCPTransport) handleConn(conn net.Conn) {
+	var err error
+	defer func(){
+		fmt.Printf("dropping peer connection: %s\n", err)
+		conn.Close()
+
+		}()
 	peer := NewTCPPeer(conn, true)
+
+
 	if err:= t.HandShakeFunc(peer); err != nil {
 		fmt.Printf("failed handshake with peer: %s\n", err)
 
@@ -100,6 +105,12 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 		fmt.Println("closed connection because of handshake failiure")
 		conn.Close()
 		return 
+	}
+
+	if t.OnPeer != nil {
+		if err := t.OnPeer(peer); err != nil {
+			return 
+		}
 	}
 
 	rpc := RPC{}
