@@ -1,7 +1,6 @@
 package p2p
 import (
 	"net"
-	"sync"
 	"fmt"
 	"errors"
 )
@@ -116,9 +115,15 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 	rpc := RPC{}
 	// Read Loop
 	for {
-		if err := t.Decoder.Decode(conn, &rpc); err!= nil {
-			fmt.Printf("tcp error in decoding : failed to read from peer: %s\n", err)
-			continue
+		err := t.Decoder.Decode(conn, &rpc)
+		if errors.Is(err, net.ErrClosed) {
+			fmt.Printf(" peer closed connection: %s\n", err)
+			return
+		}
+		
+		if err != nil {
+			fmt.Printf("tcp error in decoding : failed to read from peer: %s\n", err) 
+			continue // this is what was causing the infinite loop but how do we deal with any decode errors, we can choose to drop the connection as well so we just seperate the logic and implement checks seperately for dropped connection from peer
 		}
 
 
