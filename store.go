@@ -12,7 +12,7 @@ import (
 )
 
 
-func CASPathTransformFunc(key string) string{
+func CASPathTransformFunc(key string) PathKey{
 	// here we will be implementing our key hashing
 	// decisions to be made here : SHA1, MD5 or SHA256 
 	// we are using SHA1
@@ -26,10 +26,23 @@ func CASPathTransformFunc(key string) string{
 		from, to := i*blockSize, (i+1)*blockSize
         paths[i] = hashString[from:to]
     }
-	return strings.Join(paths, "/")
+
+	return PathKey{
+		PathName:  strings.Join(paths, "/"),
+        Original:  hashString,
+	}
+	
+}
+type PathKey struct {
+	PathName string
+	Original string
+
 }
 
-type PathTransformFunc func(key string) string
+type PathTransformFunc func(key string) PathKey
+
+
+
 
 type StoreOpts struct {
 
@@ -52,9 +65,9 @@ func NewStore(storeOpts StoreOpts) *Store{
 }
 
 func (s *Store) writeStream(key string, r io.Reader)  error {
-	pathName := s.PathTransformFunc(key)
+	pathKey := s.PathTransformFunc(key)
 
-	if err := os.MkdirAll(pathName, os.ModePerm); err != nil {
+	if err := os.MkdirAll(pathKey.PathName, os.ModePerm); err != nil {
 		return err
 		}
 
@@ -66,7 +79,7 @@ func (s *Store) writeStream(key string, r io.Reader)  error {
 	filenameBytes := md5.Sum(buf.Bytes())
 	filename := hex.EncodeToString(filenameBytes[:])
 
-	pathAndFilename := pathName + "/" + filename
+	pathAndFilename := pathKey.PathName + "/" + filename
 	f, err := os.Create(pathAndFilename)
 	if err!= nil {
         return err
