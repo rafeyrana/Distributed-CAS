@@ -27,7 +27,7 @@ func main() {
     go func(){
 		for {
 			msg := <- tr.Consume()
-			fmt.Println("%+v\n", msg)
+			fmt.Printf("Received message: %v\n", msg)
 		}
 	}()
 

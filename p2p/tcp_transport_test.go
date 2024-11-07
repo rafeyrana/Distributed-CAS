@@ -20,7 +20,7 @@ func TestTCPTransport(t *testing.T) {
 	go func(){
 		for {
 			msg := <- tr.Consume()
-			fmt.Println("%+v", msg)
+			fmt.Printf("Received message: %v\n", msg)
 		}
 	}()
 	assert.Equal(t, tr.ListenAddress, ":3000")
