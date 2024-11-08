@@ -66,6 +66,15 @@ func NewStore(storeOpts StoreOpts) *Store{
 	}
 }
 
+func (s *Store) Delete(key string) error {
+	path := s.PathTransformFunc(key)
+	fullPath := path.FullPath()
+	defer func(){
+		fmt.Printf("deleting: %s", fullPath)
+	}()
+	return os.RemoveAll(path.FullPath())
+}
+
 
 func (s *Store) Read(key string) (io.Reader, error) {
 	f, err := s.readStream(key)
@@ -75,7 +84,7 @@ func (s *Store) Read(key string) (io.Reader, error) {
 
 	defer f.Close()
 	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, f)
+	_, _ = io.Copy(buf, f)
 	f.Close()
 	return buf, nil
 }
