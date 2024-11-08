@@ -78,6 +78,9 @@ func (t *TCPTransport) startAcceptLoop() {
 	for {
 		conn, err := t.listener.Accept()
 		if errors.Is(err, net.ErrClosed) {
+			return 
+		}
+		if errors.Is(err, net.ErrClosed) {
 			return
 		}
 		if err != nil {
