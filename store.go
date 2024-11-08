@@ -39,6 +39,14 @@ type PathKey struct {
 
 }
 
+func (p PathKey) FirstPathName() string {
+	paths := strings.Split(p.PathName, "/")
+	if len(paths) == 0 {
+		return ""
+	}
+	return paths[0]
+}
+
 type PathTransformFunc func(key string) PathKey
 
 
@@ -69,10 +77,13 @@ func NewStore(storeOpts StoreOpts) *Store{
 func (s *Store) Delete(key string) error {
 	path := s.PathTransformFunc(key)
 	fullPath := path.FullPath()
+	firstPath := path.FirstPathName()
 	defer func(){
 		fmt.Printf("deleting: %s", fullPath)
 	}()
-	return os.RemoveAll(path.FullPath())
+
+
+	return os.RemoveAll(firstPath)
 }
 
 
