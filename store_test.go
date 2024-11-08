@@ -5,7 +5,7 @@ import (
 	"io/ioutil"	
 	"fmt"
 	"testing"
-	"os"
+	
 )
 
 func TestPathTransformFuncs(t *testing.T) {
@@ -23,12 +23,6 @@ func TestPathTransformFuncs(t *testing.T) {
 
 
 
-func (s *Store) HasKey(key string) bool {
-	pathKey := s.PathTransformFunc(key)
-	fullPath := pathKey.FullPath()
-	_, err := os.Stat(fullPath)
-	return !os.IsNotExist(err)
-}
 
 
 func TestDelete(t *testing.T) {
@@ -69,6 +63,6 @@ func TestStore(t *testing.T) {
 		t.Errorf("expected data : %s, got data from reading: %s", data, b)
 	}
 
-	s.Delete(key)
+
 	
 }
