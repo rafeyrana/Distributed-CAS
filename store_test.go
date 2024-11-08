@@ -68,5 +68,7 @@ func TestStore(t *testing.T) {
 	if string(b) != string(data) {
 		t.Errorf("expected data : %s, got data from reading: %s", data, b)
 	}
+
+	s.Delete(key)
 	
 }
