@@ -57,6 +57,10 @@ func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	}
 }
 
+func (t *TCPTransport) Close() error {
+	return t.listener.Close()
+}
+
 
 
 func (t *TCPTransport) ListenAndAccept() error {

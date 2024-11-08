@@ -1,7 +1,9 @@
 package main
 
 import (
-    "log"
+	"log"
+	"time"
+
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
 func main() {
@@ -18,9 +20,14 @@ func main() {
 		PathTransformFunc: CASPathTransformFunc,
         Transport: tcpTransport,
 	})
+    go func(){
+        time.Sleep(time.Second * 3)
+        s.Stop()
+    }()
+
     if err := s.Start(); err != nil {
         log.Fatal(err)
     }
-    select{} // blocking
+
 
 }
