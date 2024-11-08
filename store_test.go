@@ -26,7 +26,7 @@ func TestStore(t *testing.T) {
 	s := NewStore(opts)
 
 	data := bytes.NewReader([]byte("some jpeg bytes"))
-	err := s.writeStream("momsbestpicture", data)
+	err := s.writeStream("myspecialpictures", data)
 	if err != nil {
 		t.Error(err)
 	}

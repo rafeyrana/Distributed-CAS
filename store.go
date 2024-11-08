@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -44,7 +42,7 @@ type PathTransformFunc func(key string) PathKey
 
 
 func(p PathKey) filename() string { 
-	return	fmt.Sprintf("%s, %s",p.PathName, p.Original)
+	return	fmt.Sprintf("%s/%s",p.PathName, p.Original)
 }
 
 type StoreOpts struct {
@@ -76,19 +74,13 @@ func (s *Store) writeStream(key string, r io.Reader)  error {
 
 
 
-	buf := new(bytes.Buffer)
-	io.Copy(buf, r)
-
-	filenameBytes := md5.Sum(buf.Bytes())
-	filename := hex.EncodeToString(filenameBytes[:])
-
-	pathAndFilename := pathKey.PathName + "/" + filename
+	pathAndFilename := pathKey.filename()
 	f, err := os.Create(pathAndFilename)
 	if err!= nil {
         return err
     }
 
-	n , err := io.Copy(f, buf)
+	n , err := io.Copy(f, r)
 	if err!= nil {
         return err
     }
