@@ -2,33 +2,41 @@ package main
 
 import (
 	"log"
-	"time"
-
+	
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
-func main() {
+
+
+func makeServer(listenAddr string, nodes ...string) *FileServer {
     tcpP2pTransportOpts := p2p.TCPTransportOpts{
-		ListenAddress: ":3000",
+		ListenAddress: listenAddr,
 		HandShakeFunc: p2p.NOPHandShakeFunc,
 		Decoder: p2p.DefaultDecoder{},
         // TOOD: implment the on peer functions
 	}
     tcpTransport := p2p.NewTCPTransport(tcpP2pTransportOpts)
-
-   s := NewFileServer(FileServerOpts{
-		StorageRoot: "3000_files", // for multiple roots for different networks
+    s := NewFileServer(FileServerOpts{
+		StorageRoot: listenAddr + "_network", // for multiple roots for different networks
 		PathTransformFunc: CASPathTransformFunc,
         Transport: tcpTransport,
-        BootstrapNodes: []string{"127.0.0.1:4000"},
+        BootstrapNodes: nodes,
 	})
-    go func(){
-        time.Sleep(time.Second * 3)
-        s.Stop()
-    }()
+    tcpP2pTransportOpts.OnPeer = s.OnPeer
+    return s
+    
+}
+func main() {
 
-    if err := s.Start(); err != nil {
-        log.Fatal(err)
-    }
+   s1 := makeServer(":3000", "")
+
+
+   go func(){
+    log.Fatal(s1.Start())
+    }()
+    s2 := makeServer(":4000", ":3000")
+    
+    s2.Start()
+      
 
 
 }

@@ -34,6 +34,10 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 }
 
 
+func (p *TCPPeer) RemoteAddr() net.Addr {
+	return p.conn.RemoteAddr()
+}
+
 // peer interface implementation
 func (p *TCPPeer) Close() error {
 	return p.conn.Close()
@@ -62,7 +66,7 @@ func (t *TCPTransport) Close() error {
 }
 
 
-// Implementation of the transport interface
+// Impelementation of the transport interface
 func (t *TCPTransport) Dial(addr string) error {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
