@@ -58,10 +58,12 @@ func TestStore(t *testing.T) {
 	}
 
 	b, _ := ioutil.ReadAll(r)
-	fmt.Println("this is the data:", string(b))
 	if string(b) != string(data) {
 		t.Errorf("expected data : %s, got data from reading: %s", data, b)
 	}
+	fmt.Println("this is the data:", string(b))
+
+	s.Delete(key)
 
 
 	

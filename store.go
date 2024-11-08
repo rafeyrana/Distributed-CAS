@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"errors"
 	"strings"
 	"bytes"
 )
@@ -99,8 +100,9 @@ func NewStore(storeOpts StoreOpts) *Store {
 func (s *Store) HasKey(key string) bool {
 	pathKey := s.PathTransformFunc(key)
 	fullPath := pathKey.FullPath()
-	_, err := os.Stat(fullPath)
-	return !os.IsNotExist(err)
+	fullPathWithRoot := fmt.Sprintf("%s/%s", s.Root, fullPath)
+	_, err := os.Stat(fullPathWithRoot)
+	return !errors.Is(err, os.ErrNotExist)
 }
 
 
@@ -108,12 +110,11 @@ func (s *Store) Delete(key string) error {
 	path := s.PathTransformFunc(key)
 	fullPath := path.FullPath()
 	firstPath := path.FirstPathName()
+	firstPathWithRoot := fmt.Sprintf("%s/%s", s.Root, firstPath)
 	defer func(){
 		fmt.Printf("deleting: %s", fullPath)
 	}()
-
-
-	return os.RemoveAll(firstPath)
+	return os.RemoveAll(firstPathWithRoot)
 }
 
 
