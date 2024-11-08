@@ -8,11 +8,12 @@ import (
 	"log"
 	"os"
 	"strings"
+	"bytes"
 )
 
 
 func CASPathTransformFunc(key string) PathKey{
-	// here we will be implementing our key hashing
+	// here we will be implementing our key ing
 	// decisions to be made here : SHA1, MD5 or SHA256 
 	// we are using SHA1
 	hash  := sha1.Sum([]byte(key))
@@ -28,21 +29,21 @@ func CASPathTransformFunc(key string) PathKey{
 
 	return PathKey{
 		PathName:  strings.Join(paths, "/"),
-        Original:  hashString,
+        FileName:  hashString,
 	}
 	
 }
 type PathKey struct {
 	PathName string
-	Original string
+	FileName string
 
 }
 
 type PathTransformFunc func(key string) PathKey
 
 
-func(p PathKey) filename() string { 
-	return	fmt.Sprintf("%s/%s",p.PathName, p.Original)
+func(p PathKey) FullPath() string { 
+	return	fmt.Sprintf("%s/%s",p.PathName, p.FileName)
 }
 
 type StoreOpts struct {
@@ -65,6 +66,28 @@ func NewStore(storeOpts StoreOpts) *Store{
 	}
 }
 
+
+func (s *Store) Read(key string) (io.Reader, error) {
+	f, err := s.readStream(key)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, f)
+	f.Close()
+	return buf, nil
+}
+
+func (s *Store) readStream(key string) (io.ReadCloser, error) {
+	pathKey := s.PathTransformFunc(key)
+	pathAndFilename := pathKey.FullPath()
+	return os.Open(pathAndFilename)
+	
+}
+
+
 func (s *Store) writeStream(key string, r io.Reader)  error {
 	pathKey := s.PathTransformFunc(key)
 
@@ -74,7 +97,7 @@ func (s *Store) writeStream(key string, r io.Reader)  error {
 
 
 
-	pathAndFilename := pathKey.filename()
+	pathAndFilename := pathKey.FullPath()
 	f, err := os.Create(pathAndFilename)
 	if err!= nil {
         return err
