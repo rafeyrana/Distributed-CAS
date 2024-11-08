@@ -19,6 +19,7 @@ func main() {
 		StorageRoot: "3000_files", // for multiple roots for different networks
 		PathTransformFunc: CASPathTransformFunc,
         Transport: tcpTransport,
+        BootstrapNodes: []string{"127.0.0.1:4000"},
 	})
     go func(){
         time.Sleep(time.Second * 3)

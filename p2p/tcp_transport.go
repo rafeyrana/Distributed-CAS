@@ -62,6 +62,16 @@ func (t *TCPTransport) Close() error {
 }
 
 
+// Implementation of the transport interface
+func (t *TCPTransport) Dial(addr string) error {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+	go t.handleConn(conn, true)
+	return nil
+}
+
 
 func (t *TCPTransport) ListenAndAccept() error {
 	var err error
@@ -87,20 +97,20 @@ func (t *TCPTransport) startAcceptLoop() {
 			fmt.Printf("TCP accept error: %s\n", err)
 		}
 		fmt.Printf("new incoming connection: %s\n", conn)
-		go t.handleConn(conn)
+		go t.handleConn(conn, false)
 	}
 }
 
 
 
-func (t *TCPTransport) handleConn(conn net.Conn) {
+func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	var err error
 	defer func(){
 		fmt.Printf("dropping peer connection: %s\n", err)
 		conn.Close()
 
 		}()
-	peer := NewTCPPeer(conn, true)
+	peer := NewTCPPeer(conn, outbound)
 
 
 	if err:= t.HandShakeFunc(peer); err != nil {
