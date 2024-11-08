@@ -41,16 +41,41 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 }
-func TestStore(t *testing.T) {
+
+
+
+
+func newStore() *Store {
 	opts := StoreOpts{
 		PathTransformFunc: CASPathTransformFunc,
 	}
 	s := NewStore(opts)
-	key := "myspecialpictures"
+	return s
+	
+}
+
+
+func tearDown(t *testing.T, s *Store) {
+	if err := s.Clear(); err != nil {
+		t.Error(err)
+	}
+}
+func TestStore(t *testing.T) {
+	s := newStore()
+	defer tearDown(t, s)
+	count := 50
+	for i := 0; i < count; i++ {
+	key := fmt.Sprintf("mykey%d", i)
 	data := []byte("some jpeg bytes")
 	err := s.writeStream(key, bytes.NewReader(data))
 	if err != nil {
 		t.Error(err)
+	}
+
+
+
+	if ok := s.HasKey(key); !ok {
+		t.Errorf("key does not exist")
 	}
 	r, err := s.Read(key)
 	if err != nil {
@@ -63,7 +88,11 @@ func TestStore(t *testing.T) {
 	}
 	fmt.Println("this is the data:", string(b))
 
-	s.Delete(key)
+	if err := s.Delete(key); err != nil { t.Error(err) }
+	if ok := s.HasKey(key); ok {
+		t.Errorf("key should have been deleted")
+	}
+}
 
 
 	

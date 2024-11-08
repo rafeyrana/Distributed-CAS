@@ -3,6 +3,7 @@ import (
 	"net"
 	"fmt"
 	"errors"
+	"log"
 )
 
 
@@ -58,17 +59,15 @@ func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 
 
 
-func (t *TCPTransport) ListenAndAccept()  error{
+func (t *TCPTransport) ListenAndAccept() error {
 	var err error
-	t.listener , err = net.Listen("tcp", t.ListenAddress)
+	t.listener, err = net.Listen("tcp", t.ListenAddress)
 	if err != nil {
 		return err
 	}
 	go t.startAcceptLoop()
-
+	log.Printf("TCP transport listening on port: %s\n", t.ListenAddress)
 	return nil
-
-
 }
 
 func (t *TCPTransport) startAcceptLoop() {

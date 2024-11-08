@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"errors"
 	"strings"
@@ -106,6 +105,12 @@ func (s *Store) HasKey(key string) bool {
 }
 
 
+
+func (s *Store) Clear() error {
+	return os.RemoveAll(s.Root)
+	
+}
+
 func (s *Store) Delete(key string) error {
 	path := s.PathTransformFunc(key)
 	fullPath := path.FullPath()
@@ -140,6 +145,12 @@ func (s *Store) readStream(key string) (io.ReadCloser, error) {
 }
 
 
+
+func (s *Store) Write(key string, r io.Reader) error {// exposing the write steam
+	
+	return s.writeStream(key, r)
+}
+
 func (s *Store) writeStream(key string, r io.Reader)  error {
 	pathKey := s.PathTransformFunc(key)
 	pathNameWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.PathName)
@@ -160,7 +171,7 @@ func (s *Store) writeStream(key string, r io.Reader)  error {
         return err
     }
 
-	log.Printf("written (%d) bytes to disk: %s", n, fullPathAndFilenameWithRoot)
+	fmt.Printf("written (%d) bytes to disk: %s", n, fullPathAndFilenameWithRoot)
 
 
 	

@@ -1,40 +1,26 @@
 package main
 
 import (
-	"fmt"
-	"log"
-
+    "log"
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
-
-
-func OnPeer(peer p2p.Peer) error {
-    peer.Close() // this will close the peer from the peer itself but will send the TCP transport into a decode infinite loop because it wont have closed on this end
-
-    fmt.Printf("Logic Check")
-    return nil
-}
 func main() {
-    tcpOpts := p2p.TCPTransportOpts{
-        ListenAddress: ":3000",
-        HandShakeFunc: p2p.NOPHandShakeFunc,
-        Decoder: &p2p.DefaultDecoder{},
-        OnPeer:    OnPeer,
-    }
-    tr := p2p.NewTCPTransport(tcpOpts)
+    tcpP2pTransportOpts := p2p.TCPTransportOpts{
+		ListenAddress: ":3000",
+		HandShakeFunc: p2p.NOPHandShakeFunc,
+		Decoder: p2p.DefaultDecoder{},
+        // TOOD: implment the on peer functions
+	}
+    tcpTransport := p2p.NewTCPTransport(tcpP2pTransportOpts)
 
-
-    go func(){
-		for {
-			msg := <- tr.Consume()
-			fmt.Printf("Received message: %v\n", msg)
-		}
-	}()
-
-    if err := tr.ListenAndAccept(); err != nil {
+   s := NewFileServer(FileServerOpts{
+		StorageRoot: "3000_files", // for multiple roots for different networks
+		PathTransformFunc: CASPathTransformFunc,
+        Transport: tcpTransport,
+	})
+    if err := s.Start(); err != nil {
         log.Fatal(err)
     }
+    select{} // blocking
 
-    fmt.Printf("TCP transport listening on %s\n", tcpOpts.ListenAddress)
-    select {} // Block forever
 }
