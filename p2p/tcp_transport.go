@@ -38,6 +38,12 @@ func (p *TCPPeer) RemoteAddr() net.Addr {
 	return p.conn.RemoteAddr()
 }
 
+
+func (p *TCPPeer) Send(msg []byte) error {
+	_, err := p.conn.Write(msg)
+	return err
+}
+
 // peer interface implementation
 func (p *TCPPeer) Close() error {
 	return p.conn.Close()
@@ -64,6 +70,9 @@ func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 func (t *TCPTransport) Close() error {
 	return t.listener.Close()
 }
+
+
+
 
 
 // Impelementation of the transport interface
