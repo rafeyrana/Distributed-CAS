@@ -64,6 +64,7 @@ func (s *FileServer)BootstrapNetwork() error{
 			continue
 		}
 		go func (node_address string) {
+			fmt.Printf("[%s] attemping to connect with remote %s\n", node_address, node_address)
 			if err := s.Transport.Dial(node_address); err != nil {
 				log.Println("error dialing node", node_address, err)
 			}
