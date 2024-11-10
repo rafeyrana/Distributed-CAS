@@ -77,10 +77,11 @@ func (s *FileServer)BootstrapNetwork() error{
 
 
 func (s *FileServer) OnPeer(p p2p.Peer) error {
+	fmt.Printf("connected to remote peer %s", p.RemoteAddr().String())
     s.peerLock.Lock()
     defer s.peerLock.Unlock()
     s.peers[p.RemoteAddr().String()] = p
-    log.Println("connected to peer", p.RemoteAddr().String())
+    fmt.Printf("connected to remote peer %s", p.RemoteAddr().String())
     return nil
 }
 

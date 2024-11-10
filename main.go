@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
 
@@ -15,13 +14,15 @@ func makeServer(listenAddr string, nodes ...string) *FileServer {
         // TOOD: implment the on peer functions
 	}
     tcpTransport := p2p.NewTCPTransport(tcpP2pTransportOpts)
-    s := NewFileServer(FileServerOpts{
+    fileServerOpts := FileServerOpts{
 		StorageRoot: listenAddr + "_network", // for multiple roots for different networks
 		PathTransformFunc: CASPathTransformFunc,
         Transport: tcpTransport,
         BootstrapNodes: nodes,
-	})
-    tcpP2pTransportOpts.OnPeer = s.OnPeer
+	}
+    s := NewFileServer(fileServerOpts)
+    
+    tcpTransport.OnPeer = s.OnPeer
     return s
     
 }
