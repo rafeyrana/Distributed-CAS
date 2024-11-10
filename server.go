@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"sync"
 
@@ -52,6 +54,31 @@ func (s *FileServer) loop() {
 
 		}
 	}
+}
+
+type Payload struct{
+	Key string
+	Data []byte
+}
+
+func (s *FileServer) Broadcast (p Payload) error {
+	peers := []io.Writer{}
+	for _, peer := range s.peers {
+		peers = append(peers, peer)
+
+		}
+	mw := io.MultiWriter(peers...)
+
+	}
+	
+
+
+func (s *FileServer) StoreData(key string, r io.Reader) error {
+	// store this file in the disk
+	// broadcast file to all known peers in the network
+
+	return nil
+	
 }
 
 func (s *FileServer) Stop(){

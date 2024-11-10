@@ -9,7 +9,8 @@ import (
 
 // represents the remote node over a TCp established connecion
 type TCPPeer struct {
-	conn net.Conn
+	// the underlying connection of the peer which is the tcp connection in this case
+	 net.Conn
 	outbound bool // outbound peer if we are the one who initiated the connection (true) but if we accept it is an inbound peer
 }
 
@@ -28,26 +29,17 @@ type TCPTransportOpts struct {
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
-		conn: conn,
+		Conn :conn,
 		outbound: outbound,
 	}
 }
 
 
-func (p *TCPPeer) RemoteAddr() net.Addr {
-	return p.conn.RemoteAddr()
-}
-
-
 func (p *TCPPeer) Send(msg []byte) error {
-	_, err := p.conn.Write(msg)
+	_, err := p.Conn.Write(msg)
 	return err
 }
 
-// peer interface implementation
-func (p *TCPPeer) Close() error {
-	return p.conn.Close()
-}
 // Consume is the implmenetation for the transport interface which will return a read only channel for reading the incoming messages
 func (t *TCPTransport) Consume() <-chan RPC {
 	return t.rpcch
