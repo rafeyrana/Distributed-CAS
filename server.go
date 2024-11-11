@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 	"sync"
-
+	"bytes"
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
 
@@ -48,7 +48,11 @@ func (s *FileServer) loop() {
 	for {
 		select{
 		case msg := <- s.Transport.Consume():
-			fmt.Printf("received message %s", msg.Payload)
+			var p Payload
+			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("\n received message %s", msg.Payload)
 		case <- s.quitchan:
 			return 
 
@@ -56,31 +60,50 @@ func (s *FileServer) loop() {
 	}
 }
 
+func (s *FileServer) Broadcast(p *Payload) error {
+	peers := []io.Writer{}
+	for _, peer := range s.peers {
+		peers = append(peers, peer)
+	}
+	mw := io.MultiWriter(peers...)
+	return gob.NewEncoder(mw).Encode(p)
+}	
+
 type Payload struct{
 	Key string
 	Data []byte
 }
-
-func (s *FileServer) Broadcast (p Payload) error {
-	peers := []io.Writer{}
-	for _, peer := range s.peers {
-		peers = append(peers, peer)
-
-		}
-	mw := io.MultiWriter(peers...)
-
-	}
-	
 
 
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 	// store this file in the disk
 	// broadcast file to all known peers in the network
 
-	return nil
+
+	
+	buf := new(bytes.Buffer)
+	tee := io.TeeReader(r, buf)
+	// store it to our own disk
+	if err := s.store.Write(key, tee); err != nil {
+		return err
+	}
+	// now the reader is empty because it has been read
+   
+	
+
+
+
+	
+	p := &Payload{
+		Key: key,
+		Data: buf.Bytes(),
+	}
+	fmt.Printf("%s", buf.Bytes())
+
+
+	return s.Broadcast(p)
 	
 }
-
 func (s *FileServer) Stop(){
 	close(s.quitchan)
 }

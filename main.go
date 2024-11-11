@@ -3,6 +3,7 @@ package main
 import (
 	"log"
     "bytes"
+    "time"
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
 
@@ -37,10 +38,12 @@ func main() {
     }()
     s2 := makeServer(":4000", ":3000")
     
-    s2.Start()
+    go s2.Start()
+    time.Sleep(1 * time.Second)
 
     data := bytes.NewReader([]byte("hello world this si my big data"))
-    s2.StoreFile("myprivdata", data)
+    s2.StoreData("myprivdata", data)
+    select {}
 
 
 }
