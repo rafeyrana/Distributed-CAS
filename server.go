@@ -4,9 +4,9 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"time"
 	"log"
 	"sync"
-	"time"
 	"bytes"
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
@@ -39,14 +39,28 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 		peers : make(map[string]p2p.Peer),
 	}
 }
-// func (s *FileServer) HandleMessage(msg *Message) error {
-// 	switch v := msg.Payload.(type){
-// 	case *DataMessage:
-// 		fmt.Println("received data message: %s\n", v.Data)
-// 	}
-// 	return nil
-// }
+func (s *FileServer) HandleMessage(from string, msg *Message) error {
+	switch v := msg.Payload.(type){
+	case MessageStoreFile:
+		return s.handleMessageStoreFile(from, v)
+	}
+	return nil
+}
+func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) error {
 
+	peer , ok := s.peers[from]
+
+	if !ok {
+		fmt.Errorf("peer not found")
+		panic("peer not found")
+	}
+	if err := s.store.Write(msg.Key, peer); err != nil {
+		return err
+	}
+	peer.(*p2p.TCPPeer).Wg.Done()
+	return nil
+	
+}
 
 func (s *FileServer) loop() {
 	defer func(){
@@ -60,26 +74,13 @@ func (s *FileServer) loop() {
 			var msg Message
 			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
 				log.Println(err)
+				return
 			}
-
-
-			fmt.Printf("\n received message in the loop: %s \n", string(msg.Payload.([]byte)))
-			peer, ok := s.peers[rpc.From]
-			if !ok {
-				panic("peer not found")
+			if err := s.HandleMessage(rpc.From, &msg); err != nil {
+				log.Println(err)
+				return
 			}
-			fmt.Printf("%v", peer)
-			b := make([]byte, 1000)
-			if _, err:= peer.Read(b); err != nil {
-				panic(err)
-			}
-			
-			fmt.Printf("\n received data in the loop: %s", string(b))
-
-			// if err := s.HandleMessage(&m); err != nil {
-			// 	log.Println(err) 
-				
-			// }
+		
 		case <- s.quitchan:
 			return 
 
@@ -99,13 +100,22 @@ type Message struct {
 	Payload any
 }
 
+
+type MessageStoreFile struct {
+	Key string
+
+}
+
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 	// store this file in the disk
 	// broadcast file to all known peers in the network
 	// create a message
 	msg := Message{
-		Payload: []byte("strage key"),
+		Payload: MessageStoreFile{
+			Key: key,
+		},
 	}
+	fmt.Printf("Payload : %v", msg)
 	buf := new(bytes.Buffer)
 	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
 		return err
@@ -122,6 +132,8 @@ func (s *FileServer) StoreData(key string, r io.Reader) error {
 			return err
 		}
 	}
+
+	fmt.Printf("\n sent data in the loop: %s", string(payload))
 	return nil
 	
 	// buf := new(bytes.Buffer)
@@ -145,7 +157,6 @@ func (s *FileServer) StoreData(key string, r io.Reader) error {
 	// })
 	
 }
-
 func (s *FileServer) Stop(){
 	close(s.quitchan)
 }
@@ -189,4 +200,10 @@ func (s *FileServer) Start() error {
 	// can we block and start using go routine or not block or execute directly
 	s.loop()
 	return nil
+}
+
+
+func init() {
+	gob.Register(MessageStoreFile{})
+
 }

@@ -174,9 +174,6 @@ func (s *Store) writeStream(key string, r io.Reader)  error {
 	fmt.Printf("written (%d) bytes to disk: %s", n, fullPathAndFilenameWithRoot)
 
 
-	
-
-
 	return nil
 
 }
