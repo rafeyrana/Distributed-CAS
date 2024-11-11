@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"errors"
 	"log"
+	"sync"
 )
 
 
@@ -12,6 +13,7 @@ type TCPPeer struct {
 	// the underlying connection of the peer which is the tcp connection in this case
 	 net.Conn
 	outbound bool // outbound peer if we are the one who initiated the connection (true) but if we accept it is an inbound peer
+	Wg *sync.WaitGroup // used to wait for all goroutines to finish
 }
 
 
@@ -33,6 +35,7 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn :conn,
 		outbound: outbound,
+		Wg: &sync.WaitGroup{},
 	}
 }
 
@@ -149,8 +152,12 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 		}
 
 
-		rpc.From = conn.RemoteAddr()
+		rpc.From = conn.RemoteAddr().String()
+		peer.Wg.Add(1)
+		fmt.Println("Waiting till stream is done...")
 		t.rpcch <- rpc
+		peer.Wg.Wait()
+		fmt.Println("Continuing...")
 		// fmt.Printf("message received from peer: %+v\n", rpc)
 	
 	}

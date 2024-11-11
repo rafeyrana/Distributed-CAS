@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 	"bytes"
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
@@ -60,8 +61,20 @@ func (s *FileServer) loop() {
 			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
 				log.Println(err)
 			}
-			fmt.Println("\n received message %s", string(msg.Payload.([]byte)))
 
+
+			fmt.Printf("\n received message in the loop: %s \n", string(msg.Payload.([]byte)))
+			peer, ok := s.peers[rpc.From]
+			if !ok {
+				panic("peer not found")
+			}
+			fmt.Printf("%v", peer)
+			b := make([]byte, 1000)
+			if _, err:= peer.Read(b); err != nil {
+				panic(err)
+			}
+			
+			fmt.Printf("\n received data in the loop: %s", string(b))
 
 			// if err := s.HandleMessage(&m); err != nil {
 			// 	log.Println(err) 
@@ -73,7 +86,6 @@ func (s *FileServer) loop() {
 		}
 	}
 }
-
 func (s *FileServer) Broadcast(msg *Message) error {
 	peers := []io.Writer{}
 	for _, peer := range s.peers {
@@ -103,7 +115,13 @@ func (s *FileServer) StoreData(key string, r io.Reader) error {
 			return err
 		}
 	}
-
+	time.Sleep(3 * time.Second)
+	payload := []byte("THIS IS A LARGE FILEEEEEEE")	
+	for _, peer := range s.peers {
+		if err := peer.Send(payload); err != nil {
+			return err
+		}
+	}
 	return nil
 	
 	// buf := new(bytes.Buffer)
