@@ -2,7 +2,8 @@ package main
 
 import (
 	"log"
-    "bytes"
+    "fmt"
+    "io/ioutil"
     "time"
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
@@ -41,8 +42,20 @@ func main() {
     go s2.Start()
     time.Sleep(3 * time.Second)
 
-    data := bytes.NewReader([]byte("THIS LARGE FILE"))
-    s2.StoreData("myprivdata", data)
+    // data := bytes.NewReader([]byte("THIS LARGE FILE"))
+    // s2.Store("myprivdata", data)
+
+    r, err := s2.Get("footbar")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    b , err := ioutil.ReadAll(r)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(string(b))
+
     select {}
 
 
