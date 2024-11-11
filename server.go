@@ -54,7 +54,7 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 		fmt.Errorf("peer not found")
 		panic("peer not found")
 	}
-	if err := s.store.Write(msg.Key, peer); err != nil {
+	if _, err := s.store.Write(msg.Key, io.LimitReader(peer,int64(msg.Size) )); err != nil {
 		return err
 	}
 	peer.(*p2p.TCPPeer).Wg.Done()
@@ -103,59 +103,56 @@ type Message struct {
 
 type MessageStoreFile struct {
 	Key string
+	Size int64
 
 }
 
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 	// store this file in the disk
 	// broadcast file to all known peers in the network
+
+
+	buf := new(bytes.Buffer)
+	tee := io.TeeReader(r, buf)
+	// // store it to our own disk
+	size, err := s.store.Write(key, tee);
+	if err != nil {
+		return err
+	}
+
 	// create a message
 	msg := Message{
 		Payload: MessageStoreFile{
 			Key: key,
+			Size: size,
 		},
 	}
 	fmt.Printf("Payload : %v", msg)
-	buf := new(bytes.Buffer)
-	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
+	msgBuffer := new(bytes.Buffer)
+	if err := gob.NewEncoder(msgBuffer).Encode(msg); err != nil {
 		return err
 	}
 	for _, peer := range s.peers {
-		if err := peer.Send(buf.Bytes()); err != nil {
-			return err
-		}
-	}
-	time.Sleep(3 * time.Second)
-	payload := []byte("THIS IS A LARGE FILEEEEEEE")	
-	for _, peer := range s.peers {
-		if err := peer.Send(payload); err != nil {
+		if err := peer.Send(msgBuffer.Bytes()); err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("\n sent data in the loop: %s", string(payload))
+	time.Sleep(3 * time.Second)
+	
+	
+	for _, peer := range s.peers {
+		n, err := io.Copy(peer, buf)
+		if err != nil {
+			return err
+		}
+		fmt.Println("received and written bytes to disk: ", n)
+	}
+
+	
 	return nil
 	
-	// buf := new(bytes.Buffer)
-	// tee := io.TeeReader(r, buf)
-	// // store it to our own disk
-	// if err := s.store.Write(key, tee); err != nil {
-	// 	return err
-	// }
-	// // now the reader is empty because it has been read
-   
-	// p := &DataMessage{
-	// 	Key: key,
-	// 	Data: buf.Bytes(),
-	// }
-	// fmt.Println("%s", buf.Bytes())
 
-
-	// return s.Broadcast(&Message{
-	// 	From: "todo",
-	// 	Payload: p,
-	// })
-	
 }
 func (s *FileServer) Stop(){
 	close(s.quitchan)

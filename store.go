@@ -146,34 +146,34 @@ func (s *Store) readStream(key string) (io.ReadCloser, error) {
 
 
 
-func (s *Store) Write(key string, r io.Reader) error {// exposing the write steam
+func (s *Store) Write(key string, r io.Reader) (int64, error) {// exposing the write steam
 	
 	return s.writeStream(key, r)
 }
 
-func (s *Store) writeStream(key string, r io.Reader)  error {
+func (s *Store) writeStream(key string, r io.Reader)  (int64, error) {
 	pathKey := s.PathTransformFunc(key)
 	pathNameWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.PathName)
 
 	if err := os.MkdirAll(pathNameWithRoot, os.ModePerm); err != nil {
-		return err
+		return 0, err
 		}
 
 	pathAndFilename := pathKey.FullPath()
 	fullPathAndFilenameWithRoot := fmt.Sprintf("%s/%s", s.Root, pathAndFilename)
 	f, err := os.Create(fullPathAndFilenameWithRoot)
 	if err!= nil {
-        return err
+        return  0, err
     }
 
 	n , err := io.Copy(f, r)
 	if err!= nil {
-        return err
+        return  0, err
     }
 
 	fmt.Printf("written (%d) bytes to disk: %s", n, fullPathAndFilenameWithRoot)
 
 
-	return nil
+	return  n, err
 
 }
