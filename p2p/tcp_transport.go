@@ -27,6 +27,8 @@ type TCPTransportOpts struct {
 
 }
 
+
+
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn :conn,
@@ -62,7 +64,6 @@ func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 func (t *TCPTransport) Close() error {
 	return t.listener.Close()
 }
-
 
 
 

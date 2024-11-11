@@ -38,6 +38,14 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 		peers : make(map[string]p2p.Peer),
 	}
 }
+// func (s *FileServer) HandleMessage(msg *Message) error {
+// 	switch v := msg.Payload.(type){
+// 	case *DataMessage:
+// 		fmt.Println("received data message: %s\n", v.Data)
+// 	}
+// 	return nil
+// }
+
 
 func (s *FileServer) loop() {
 	defer func(){
@@ -47,12 +55,18 @@ func (s *FileServer) loop() {
 
 	for {
 		select{
-		case msg := <- s.Transport.Consume():
-			var p Payload
-			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&p); err != nil {
-				log.Fatal(err)
+		case rpc := <- s.Transport.Consume():
+			var msg Message
+			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
+				log.Println(err)
 			}
-			fmt.Printf("\n received message %s", msg.Payload)
+			fmt.Println("\n received message %s", string(msg.Payload.([]byte)))
+
+
+			// if err := s.HandleMessage(&m); err != nil {
+			// 	log.Println(err) 
+				
+			// }
 		case <- s.quitchan:
 			return 
 
@@ -60,50 +74,60 @@ func (s *FileServer) loop() {
 	}
 }
 
-func (s *FileServer) Broadcast(p *Payload) error {
+func (s *FileServer) Broadcast(msg *Message) error {
 	peers := []io.Writer{}
 	for _, peer := range s.peers {
 		peers = append(peers, peer)
 	}
 	mw := io.MultiWriter(peers...)
-	return gob.NewEncoder(mw).Encode(p)
+	return gob.NewEncoder(mw).Encode(msg)
 }	
 
-type Payload struct{
-	Key string
-	Data []byte
+type Message struct {
+	Payload any
 }
-
 
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 	// store this file in the disk
 	// broadcast file to all known peers in the network
-
-
-	
+	// create a message
+	msg := Message{
+		Payload: []byte("strage key"),
+	}
 	buf := new(bytes.Buffer)
-	tee := io.TeeReader(r, buf)
-	// store it to our own disk
-	if err := s.store.Write(key, tee); err != nil {
+	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
 		return err
 	}
-	// now the reader is empty because it has been read
-   
-	
-
-
-
-	
-	p := &Payload{
-		Key: key,
-		Data: buf.Bytes(),
+	for _, peer := range s.peers {
+		if err := peer.Send(buf.Bytes()); err != nil {
+			return err
+		}
 	}
-	fmt.Printf("%s", buf.Bytes())
+
+	return nil
+	
+	// buf := new(bytes.Buffer)
+	// tee := io.TeeReader(r, buf)
+	// // store it to our own disk
+	// if err := s.store.Write(key, tee); err != nil {
+	// 	return err
+	// }
+	// // now the reader is empty because it has been read
+   
+	// p := &DataMessage{
+	// 	Key: key,
+	// 	Data: buf.Bytes(),
+	// }
+	// fmt.Println("%s", buf.Bytes())
 
 
-	return s.Broadcast(p)
+	// return s.Broadcast(&Message{
+	// 	From: "todo",
+	// 	Payload: p,
+	// })
 	
 }
+
 func (s *FileServer) Stop(){
 	close(s.quitchan)
 }
@@ -114,7 +138,7 @@ func (s *FileServer)BootstrapNetwork() error{
 			continue
 		}
 		go func (node_address string) {
-			fmt.Printf("[%s] attemping to connect with remote %s\n", node_address, node_address)
+			fmt.Println("[%s] attemping to connect with remote %s\n", node_address, node_address)
 			if err := s.Transport.Dial(node_address); err != nil {
 				log.Println("error dialing node", node_address, err)
 			}
@@ -127,11 +151,11 @@ func (s *FileServer)BootstrapNetwork() error{
 
 
 func (s *FileServer) OnPeer(p p2p.Peer) error {
-	fmt.Printf("connected to remote peer %s", p.RemoteAddr().String())
+	fmt.Println("connected to remote peer %s", p.RemoteAddr().String())
     s.peerLock.Lock()
     defer s.peerLock.Unlock()
     s.peers[p.RemoteAddr().String()] = p
-    fmt.Printf("connected to remote peer %s", p.RemoteAddr().String())
+    fmt.Println("connected to remote peer %s", p.RemoteAddr().String())
     return nil
 }
 

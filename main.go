@@ -37,9 +37,9 @@ func main() {
     log.Fatal(s1.Start())
     }()
     s2 := makeServer(":4000", ":3000")
-    
+    time.Sleep(3 * time.Second)
     go s2.Start()
-    time.Sleep(1 * time.Second)
+    time.Sleep(3 * time.Second)
 
     data := bytes.NewReader([]byte("hello world this si my big data"))
     s2.StoreData("myprivdata", data)
