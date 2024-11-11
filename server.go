@@ -54,9 +54,11 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 		fmt.Errorf("peer not found")
 		panic("peer not found")
 	}
-	if _, err := s.store.Write(msg.Key, io.LimitReader(peer,int64(msg.Size) )); err != nil {
+	n, err := s.store.Write(msg.Key, io.LimitReader(peer,int64(msg.Size) ))
+	if err != nil {
 		return err
 	}
+	fmt.Println("wrote %d bytes to disk", n)
 	peer.(*p2p.TCPPeer).Wg.Done()
 	return nil
 	
@@ -110,10 +112,10 @@ type MessageStoreFile struct {
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 	// store this file in the disk
 	// broadcast file to all known peers in the network
-
-
-	buf := new(bytes.Buffer)
-	tee := io.TeeReader(r, buf)
+	var (
+	fileBuf = new(bytes.Buffer)
+	tee = io.TeeReader(r, fileBuf)
+	)
 	// // store it to our own disk
 	size, err := s.store.Write(key, tee);
 	if err != nil {
@@ -142,7 +144,7 @@ func (s *FileServer) StoreData(key string, r io.Reader) error {
 	
 	
 	for _, peer := range s.peers {
-		n, err := io.Copy(peer, buf)
+		n, err := io.Copy(peer, fileBuf)
 		if err != nil {
 			return err
 		}
