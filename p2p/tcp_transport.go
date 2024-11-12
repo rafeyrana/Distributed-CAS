@@ -17,6 +17,10 @@ type TCPPeer struct {
 }
 
 
+// implements the transport interface returning the address the transport is accpeting connecitons
+func (t *TCPTransport) Addr() string {
+	return t.ListenAddress
+}
 
 
 type TCPTransportOpts struct {
@@ -60,7 +64,7 @@ type TCPTransport struct {
 func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
-		rpcch: make(chan RPC),
+		rpcch: make(chan RPC, 1024),
 	}
 }
 
@@ -137,34 +141,27 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 		}
 	}
 
-	rpc := RPC{}
+
 	// Read Loop
+	rpc := RPC{}
 	for {
 		err := t.Decoder.Decode(conn, &rpc)
 		if errors.Is(err, net.ErrClosed) {
 			fmt.Printf(" peer closed connection: %s\n", err)
 			return
 		}
-		
-		if err != nil {
-			fmt.Printf("tcp error in decoding : failed to read from peer: %s\n", err) 
-			continue // this is what was causing the infinite loop but how do we deal with any decode errors, we can choose to drop the connection as well so we just seperate the logic and implement checks seperately for dropped connection from peer
-		}
-
-
 		rpc.From = conn.RemoteAddr().String()
-		peer.Wg.Add(1)
-		fmt.Println("Waiting till stream is done...")
+		if rpc.Stream {
+            fmt.Println("Received stream message from ", rpc.From)
+            peer.Wg.Add(1)
+			fmt.Printf("[%s] incoming steam ..... \n", conn.RemoteAddr().String())
+			peer.Wg.Wait()
+			fmt.Printf("Stream closed. Resuming with read loop \n")
+			continue
+        }
 		t.rpcch <- rpc
-		peer.Wg.Wait()
+
 		fmt.Println("Continuing...")
-		// fmt.Printf("message received from peer: %+v\n", rpc)
 	
 	}
-
-
-	// fmt.Println("new incoming connection:", conn)
-	// peer := NewTCPPeer(conn)
-	// t.addPeer(peer)
-	// return nil
 }

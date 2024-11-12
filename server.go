@@ -53,6 +53,7 @@ func (s *FileServer) HandleMessage(from string, msg *Message) error {
 
 
 func (s *FileServer) handleMessageGetFile(from string, msg MessageGetFile) error {
+	fmt.Println("serving file over the network", msg.Key)
 	if s.store.HasKey(msg.Key) {
 		reader, err := s.store.Read(msg.Key)
 		if err != nil {
@@ -66,7 +67,7 @@ func (s *FileServer) handleMessageGetFile(from string, msg MessageGetFile) error
 		if err != nil {
 			return err
 		}
-		fmt.Println("sent %d bytes to  %s", n,from)
+		fmt.Printf("sent %d bytes to  %s", n,from)
 
 
 
@@ -92,7 +93,7 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 	if err != nil {
 		return err
 	}
-	fmt.Println("wrote %d bytes to disk", n)
+	fmt.Println("wrote %d bytes to disk on address : [%s]", n, s.Transport.Addr())
 	peer.(*p2p.TCPPeer).Wg.Done()
 	return nil
 	
@@ -131,19 +132,19 @@ func (s *FileServer) stream(msg *Message) error {
 	return gob.NewEncoder(mw).Encode(msg)
 }	
 
-func (s *FileServer) broadcast(msg *Message) error{
+func (s *FileServer) broadcast(msg *Message) error {
 	msgBuffer := new(bytes.Buffer)
 	if err := gob.NewEncoder(msgBuffer).Encode(msg); err != nil {
 		return err
 	}
 	for _, peer := range s.peers {
+		peer.Send([]byte{p2p.IncomingMessage})
 		if err := peer.Send(msgBuffer.Bytes()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-
 type Message struct {
 	Payload any
 }
@@ -173,7 +174,23 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 	if err := s.broadcast(&msg); err != nil {
 		return nil , err
 	}
+	
+
+	// now have to open up a stream and read from every peet
+	for _, peer := range s.peers {
+		fileBuffer := new(bytes.Buffer)
+		n, err := io.CopyN(fileBuffer, peer, 22)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("recieved bytes over the network: %d", n)
+		fmt.Println(fileBuffer.String())
+	}
+
 	fmt.Println("dont have file locally : %s", key, "fetching from network..... \n")
+
+
+
 	select{}
 	return nil, fmt.Errorf("key not found: %s", key)
 }
@@ -198,15 +215,20 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 			Size: size,
 		},
 	}
+
 	fmt.Printf("Payload : %v", msg)
 	// send message to all peers
 	if err:= s.broadcast(&msg); err != nil {
 		return err
 	}
-	time.Sleep(3 * time.Second)
+
+
+	time.Sleep(5 * time.Millisecond)
 	
+
 	// todo : use a multiwriter here
 	for _, peer := range s.peers {
+		peer.Send([]byte{p2p.IncomingStream})
 		n, err := io.Copy(peer, fileBuf)
 		if err != nil {
 			return err
