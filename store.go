@@ -124,25 +124,33 @@ func (s *Store) Delete(key string) error {
 /// TODO: instead of copying directly to a reader we first copy this into a buffer and 
 // maybe just return thw file from read stream ?
 
-func (s *Store) Read(key string) (io.Reader, error) {
-	f, err := s.readStream(key)
+func (s *Store) Read(key string) (int64, io.Reader, error) {
+	n , f, err := s.readStream(key)
 	if err != nil {
-		return nil, err
+		return n, nil, err
 	}
 
 	defer f.Close()
 	buf := new(bytes.Buffer)
-	_, _ = io.Copy(buf, f)
-	f.Close()
+	_ , err = io.Copy(buf, f)
+	
 
-	return buf, nil
+	return n, buf, err
 }
 
-func (s *Store) readStream(key string) (io.ReadCloser, error) {
+func (s *Store) readStream(key string) (int64, io.ReadCloser, error) {
 	pathKey := s.PathTransformFunc(key)
 	pathAndFilename := pathKey.FullPath()
 	fullPathWithRoot := fmt.Sprintf("%s/%s", s.Root, pathAndFilename)
-	return os.Open(fullPathWithRoot)
+	fi ,err := os.Stat(fullPathWithRoot)
+	if err != nil {
+		return 0, nil, err
+	}
+	file, err := os.Open(fullPathWithRoot)
+	if err!= nil {
+        return 0, nil, err
+    }
+	return fi.Size(), file, nil
 	
 }
 
