@@ -53,7 +53,7 @@ func (s *FileServer) HandleMessage(from string, msg *Message) error {
 
 
 func (s *FileServer) handleMessageGetFile(from string, msg MessageGetFile) error {
-	fmt.Println("serving file over the network", msg.Key)
+	fmt.Printf("[%s] serving file over the network : %s", s.Transport.Addr(),msg.Key)
 	if s.store.HasKey(msg.Key) {
 		reader, err := s.store.Read(msg.Key)
 		if err != nil {
@@ -63,17 +63,20 @@ func (s *FileServer) handleMessageGetFile(from string, msg MessageGetFile) error
 		if !ok {
 			return fmt.Errorf("peer  %s not found", peer)
 		}
+
+
+		peer.Send([]byte{p2p.IncomingStream})
 		n , err := io.Copy(peer, reader)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("sent %d bytes to  %s", n,from)
+		fmt.Printf("\n [%s] written %d bytes over the network to  %s",s.Transport.Addr(), n ,from)
 
 
 
 		return nil
 	} else {
-		return fmt.Errorf("Need to serve file : %s butFile not found: ", msg.Key)
+		return fmt.Errorf("[%s] Need to serve file : %s but File not found: ",s.Transport.Addr(), msg.Key)
 	}
 
 	return nil
@@ -94,7 +97,8 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 		return err
 	}
 	fmt.Println("wrote %d bytes to disk on address : [%s]", n, s.Transport.Addr())
-	peer.(*p2p.TCPPeer).Wg.Done()
+	//peer.(*p2p.TCPPeer).Wg.Done()
+	peer.CloseStream()
 	return nil
 	
 }
@@ -163,9 +167,11 @@ type MessageGetFile struct {
 
 func (s *FileServer) Get(key string) (io.Reader, error) {
 	if s.store.HasKey(key) {
+		fmt.Printf("[%s] serving file (%s) locally \n", s.Transport.Addr(), key)
 		return s.store.Read(key)
 	}
 
+	fmt.Println("[%s] did not find file (%s) locally. Serving via network.......\n", s.Transport.Addr(), key)
 	msg := Message{
 		Payload: MessageGetFile{
 			Key: key,
@@ -176,19 +182,21 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 	}
 	
 
-	// now have to open up a stream and read from every peet
+	time.Sleep(500 * time.Millisecond)
+
+	// now have to open up a stream and read from every peer
 	for _, peer := range s.peers {
 		fileBuffer := new(bytes.Buffer)
-		n, err := io.CopyN(fileBuffer, peer, 22)
+		n, err := io.CopyN(fileBuffer, peer, 15)
+		
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("recieved bytes over the network: %d", n)
+		fmt.Printf(" [%s] recieved bytes (%d) over the network from:  %s", s.Transport.Addr(), n, peer.RemoteAddr())
 		fmt.Println(fileBuffer.String())
+
+		peer.CloseStream()
 	}
-
-	fmt.Println("dont have file locally : %s", key, "fetching from network..... \n")
-
 
 
 	select{}

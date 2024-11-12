@@ -13,7 +13,7 @@ type TCPPeer struct {
 	// the underlying connection of the peer which is the tcp connection in this case
 	 net.Conn
 	outbound bool // outbound peer if we are the one who initiated the connection (true) but if we accept it is an inbound peer
-	Wg *sync.WaitGroup // used to wait for all goroutines to finish
+	wg *sync.WaitGroup // used to wait for all goroutines to finish
 }
 
 
@@ -39,10 +39,12 @@ func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn :conn,
 		outbound: outbound,
-		Wg: &sync.WaitGroup{},
+		wg: &sync.WaitGroup{},
 	}
 }
-
+func (p *TCPPeer) CloseStream() {
+	p.wg.Done()
+}
 
 func (p *TCPPeer) Send(msg []byte) error {
 	_, err := p.Conn.Write(msg)
@@ -153,9 +155,9 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 		rpc.From = conn.RemoteAddr().String()
 		if rpc.Stream {
             fmt.Println("Received stream message from ", rpc.From)
-            peer.Wg.Add(1)
-			fmt.Printf("[%s] incoming steam ..... \n", conn.RemoteAddr().String())
-			peer.Wg.Wait()
+            peer.wg.Add(1)
+			fmt.Printf("[%s] incoming stream ..... \n", conn.RemoteAddr().String())
+			peer.wg.Wait()
 			fmt.Printf("Stream closed. Resuming with read loop \n")
 			continue
         }

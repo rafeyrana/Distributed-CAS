@@ -1,9 +1,11 @@
 package main
 
 import (
+"fmt"
+"io/ioutil"
 	"log"
-    "bytes"
-    "time"
+	"time"
+
 	"github.com/rafeyrana/Distributed-CAS/p2p"
 )
 
@@ -13,7 +15,6 @@ func makeServer(listenAddr string, nodes ...string) *FileServer {
 		ListenAddress: listenAddr,
 		HandShakeFunc: p2p.NOPHandShakeFunc,
 		Decoder: p2p.DefaultDecoder{},
-        // TOOD: implment the on peer functions
 	}
     tcpTransport := p2p.NewTCPTransport(tcpP2pTransportOpts)
     fileServerOpts := FileServerOpts{
@@ -40,29 +41,24 @@ func main() {
     time.Sleep(3 * time.Second)
     go s2.Start()
     time.Sleep(3 * time.Second)
-    for i := 0; i < 10; i++ {
-        data := bytes.NewReader([]byte("THIS LARGE FILE"))
-        s2.Store("myprivdata", data)
-        time.Sleep(5 * time.Millisecond)
+    // data := bytes.NewReader([]byte("THIS LARGE FILE"))
+    // s2.Store("coolpicture.jpg", data)
+    // time.Sleep(5 * time.Millisecond)
 
-    
-    
-    
-    }
   
     // data := bytes.NewReader([]byte("THIS LARGE FILE"))
     // s2.Store("myprivdata", data)
 
-    // r, err := s2.Get("myprivdata")
-    // if err != nil {
-    //     log.Fatal(err)
-    // }
+    r, err := s2.Get("coolpicture.jpg")
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    // b , err := ioutil.ReadAll(r)
-    // if err != nil {
-    //     log.Fatal(err)
-    // }
-    // fmt.Println(string(b))
+    b , err := ioutil.ReadAll(r)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(string(b))
 
     select {}
 

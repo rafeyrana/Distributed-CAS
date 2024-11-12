@@ -6,7 +6,7 @@ import "net"
 type Peer interface{
 	Send([]byte) error
 	net.Conn
-	
+	CloseStream() 
 
 
 }
