@@ -46,7 +46,8 @@ func main() {
     // time.Sleep(5 * time.Millisecond)
 
   
-    // data := bytes.NewReader([]byte("THIS LARGE FILE"))
+    // data := bytes.NewReader([]byte("THIS LARGE FILE"))pserver
+    
     // s2.Store("myprivdata", data)
 
     r, err := s2.Get("coolpicture.jpg")
@@ -60,7 +61,7 @@ func main() {
     }
     fmt.Println(string(b))
 
-    select {}
+    
 
 
 }

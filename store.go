@@ -121,7 +121,8 @@ func (s *Store) Delete(key string) error {
 	}()
 	return os.RemoveAll(firstPathWithRoot)
 }
-
+/// TODO: instead of copying directly to a reader we first copy this into a buffer and 
+// maybe just return thw file from read stream ?
 
 func (s *Store) Read(key string) (io.Reader, error) {
 	f, err := s.readStream(key)
@@ -133,6 +134,7 @@ func (s *Store) Read(key string) (io.Reader, error) {
 	buf := new(bytes.Buffer)
 	_, _ = io.Copy(buf, f)
 	f.Close()
+
 	return buf, nil
 }
 

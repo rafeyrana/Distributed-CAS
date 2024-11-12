@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"encoding/binary"
 	"time"
 	"log"
 	"sync"
@@ -66,6 +67,8 @@ func (s *FileServer) handleMessageGetFile(from string, msg MessageGetFile) error
 
 
 		peer.Send([]byte{p2p.IncomingStream})
+		var fileSize int64 = 15
+		binary.Write(peer, binary.LittleEndian, fileSize)
 		n , err := io.Copy(peer, reader)
 		if err != nil {
 			return err
@@ -165,6 +168,11 @@ type MessageGetFile struct {
 	Key string
 }
 
+
+
+
+
+
 func (s *FileServer) Get(key string) (io.Reader, error) {
 	if s.store.HasKey(key) {
 		fmt.Printf("[%s] serving file (%s) locally \n", s.Transport.Addr(), key)
@@ -186,21 +194,27 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 
 	// now have to open up a stream and read from every peer
 	for _, peer := range s.peers {
-		fileBuffer := new(bytes.Buffer)
-		n, err := io.CopyN(fileBuffer, peer, 15)
-		
+		// first read the file size so we can limit the io.Reader in the connection so it does not block
+		var fileSize int64 
+		binary.Read(peer, binary.LittleEndian, &fileSize)
+		n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
 		if err != nil {
 			return nil, err
 		}
+
+		// fileBuffer := new(bytes.Buffer)
+		// n, err := io.CopyN(fileBuffer, peer, 15)
+		
+		// if err != nil {
+		// 	return nil, err
+		// }
 		fmt.Printf(" [%s] recieved bytes (%d) over the network from:  %s", s.Transport.Addr(), n, peer.RemoteAddr())
-		fmt.Println(fileBuffer.String())
 
 		peer.CloseStream()
 	}
 
 
-	select{}
-	return nil, fmt.Errorf("key not found: %s", key)
+	return s.store.Read(key)
 }
 
 func (s *FileServer) Store(key string, r io.Reader) error {
@@ -233,9 +247,10 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 
 	time.Sleep(1 * time.Millisecond)
 	
-
+// first send the incomingStream bytes to the peer and then send the file size in ad
 	// todo : use a multiwriter here
 	for _, peer := range s.peers {
+
 		peer.Send([]byte{p2p.IncomingStream})
 		n, err := io.Copy(peer, fileBuf)
 		if err != nil {
