@@ -143,8 +143,8 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 
 
 	// Read Loop
-	rpc := RPC{}
 	for {
+		rpc := RPC{}
 		err := t.Decoder.Decode(conn, &rpc)
 		if errors.Is(err, net.ErrClosed) {
 			fmt.Printf(" peer closed connection: %s\n", err)

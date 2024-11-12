@@ -223,7 +223,7 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 	}
 
 
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(1 * time.Millisecond)
 	
 
 	// todo : use a multiwriter here

@@ -40,7 +40,7 @@ func main() {
     time.Sleep(3 * time.Second)
     go s2.Start()
     time.Sleep(3 * time.Second)
-    for i := 0; i < 1; i++ {
+    for i := 0; i < 10; i++ {
         data := bytes.NewReader([]byte("THIS LARGE FILE"))
         s2.Store("myprivdata", data)
         time.Sleep(5 * time.Millisecond)
