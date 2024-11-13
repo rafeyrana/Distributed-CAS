@@ -60,6 +60,14 @@ func (s *FileServer) handleMessageGetFile(from string, msg MessageGetFile) error
 		if err != nil {
 			return err
 		}
+
+
+		if rc, ok :=  reader.(io.ReadCloser); ok {
+			fmt.Println("closing readCloser")
+			defer rc.Close()
+		}
+
+
 		peer , ok := s.peers[from]
 		if !ok {
 			return fmt.Errorf("peer  %s not found", peer)
@@ -98,7 +106,7 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 	if err != nil {
 		return err
 	}
-	fmt.Println("wrote %d bytes to disk on address : [%s]", n, s.Transport.Addr())
+	fmt.Printf("wrote %d bytes to disk on address : [%s] \n", n, s.Transport.Addr())
 	//peer.(*p2p.TCPPeer).Wg.Done()
 	peer.CloseStream()
 	return nil
@@ -179,7 +187,7 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 		return r, err
 	}
 
-	fmt.Println("[%s] did not find file (%s) locally. Serving via network.......\n", s.Transport.Addr(), key)
+	fmt.Printf("\n [%s] did not find file (%s) locally. Serving via network.......\n", s.Transport.Addr(), key)
 	msg := Message{
 		Payload: MessageGetFile{
 			Key: key,
@@ -274,7 +282,7 @@ func (s *FileServer)BootstrapNetwork() error{
 			continue
 		}
 		go func (node_address string) {
-			fmt.Println("[%s] attemping to connect with remote %s\n", node_address, node_address)
+			fmt.Printf("\n [%s] attemping to connect with remote %s\n", node_address, node_address)
 			if err := s.Transport.Dial(node_address); err != nil {
 				log.Println("error dialing node", node_address, err)
 			}
@@ -287,11 +295,11 @@ func (s *FileServer)BootstrapNetwork() error{
 
 
 func (s *FileServer) OnPeer(p p2p.Peer) error {
-	fmt.Println("connected to remote peer %s", p.RemoteAddr().String())
+	fmt.Printf("\n connected to remote peer %s", p.RemoteAddr().String())
     s.peerLock.Lock()
     defer s.peerLock.Unlock()
     s.peers[p.RemoteAddr().String()] = p
-    fmt.Println("connected to remote peer %s", p.RemoteAddr().String())
+    fmt.Printf("\n connected to remote peer %s", p.RemoteAddr().String())
     return nil
 }
 

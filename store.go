@@ -8,7 +8,6 @@ import (
 	"os"
 	"errors"
 	"strings"
-	"bytes"
 )
 
 func getDefaultRootFolder() (string, error) {
@@ -121,21 +120,10 @@ func (s *Store) Delete(key string) error {
 	}()
 	return os.RemoveAll(firstPathWithRoot)
 }
-/// TODO: instead of copying directly to a reader we first copy this into a buffer and 
-// maybe just return thw file from read stream ?
+
 
 func (s *Store) Read(key string) (int64, io.Reader, error) {
-	n , f, err := s.readStream(key)
-	if err != nil {
-		return n, nil, err
-	}
-
-	defer f.Close()
-	buf := new(bytes.Buffer)
-	_ , err = io.Copy(buf, f)
-	
-
-	return n, buf, err
+	return s.readStream(key)
 }
 
 func (s *Store) readStream(key string) (int64, io.ReadCloser, error) {
