@@ -14,6 +14,7 @@ import (
 
 type FileServerOpts struct {
 	ListenAddress    string
+	EncKey           []byte
 	StorageRoot 	 string
 	PathTransformFunc PathTransformFunc
 	Transport p2p.Transport
@@ -242,7 +243,7 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 	msg := Message{
 		Payload: MessageStoreFile{
 			Key: key,
-			Size: size,
+			Size: size + 16, // 16 bytes for the iv encrpytion header
 		},
 	}
 
@@ -260,7 +261,8 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 	for _, peer := range s.peers {
 
 		peer.Send([]byte{p2p.IncomingStream})
-		n, err := io.Copy(peer, fileBuf)
+		n, err := copyEncrypt(s.EncKey, fileBuf, peer)
+		// n, err := io.Copy(peer, fileBuf)
 		if err != nil {
 			return err
 		}

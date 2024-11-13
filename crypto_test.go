@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"bytes"
 	"testing"
 )
@@ -15,7 +14,10 @@ func TestNewEncryptionKey(t *testing.T) {
 	
 }
 func TestCopyEncryptDecrypt(t *testing.T) {
-	src := bytes.NewReader([]byte("some bytes"))
+
+
+	og_src :="some bytes"
+	src := bytes.NewReader([]byte(og_src))
 	dst := new(bytes.Buffer)
 	key := newEncryptionKey()
 
@@ -23,15 +25,19 @@ func TestCopyEncryptDecrypt(t *testing.T) {
 	if err != nil{
 		t.Error(err)
 	}
-
-	fmt.Println(dst.String())
 	out := new(bytes.Buffer)
-	_, err = copyDecrypt(key, dst, out)
+	nw, err := copyDecrypt(key, dst, out)
 	if err != nil {
 		t.Error(err)
 	}
 
-	fmt.Println(out.String())
+	if nw != 16 + len(og_src) {
+		t.Error("encryption failed here because of length mismatch")
+	}
+
+	if out.String() != og_src {
+		t.Error("encryption failed here because of content mismatch")
+	}
 
 	
 
