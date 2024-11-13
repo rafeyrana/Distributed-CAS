@@ -206,7 +206,8 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 		// first read the file size so we can limit the io.Reader in the connection so it does not block
 		var fileSize int64 
 		binary.Read(peer, binary.LittleEndian, &fileSize)
-		n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
+		n , err:= s.store.WriteDecrypt(s.EncKey, key, io.LimitReader(peer, fileSize))
+		// n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
 		if err != nil {
 			return nil, err
 		}

@@ -26,7 +26,7 @@ func (dec DefaultDecoder) Decode(r io.Reader, msg *RPC) error {
 
 	
 	// we are just reading the first byte to determine if it is a stream or not
-	// if it is a stream we are not decoding anything and we can handle that later
+	// if it is a stream we are not decoding anything and we can handle that
 	stream := peekBuf[0] == IncomingStream
 	if stream{
 		msg.Stream = true

@@ -1,8 +1,9 @@
 package main
 
 import (
+    "fmt"
+    "io/ioutil"
     "bytes"
-
 	"log"
 	"time"
 
@@ -40,27 +41,32 @@ func main() {
     }()
     s2 := makeServer(":4000", ":3000")
     time.Sleep(1 * time.Second)
-    go s2.Start()
-    time.Sleep(1 * time.Second)
-    data := bytes.NewReader([]byte("THIS LARGE FILE"))
-    s2.Store("coolpicture.jpg", data)
-    time.Sleep(1 * time.Second)
 
-  
+
+
+    go s2.Start()
+    time.Sleep(3 * time.Second)
+    key := "coolpicture.jpg"
+    data := bytes.NewReader([]byte("THIS LARGE FILE"))
+    s2.Store(key , data)
+    time.Sleep(1 * time.Second)
+   if err:= s2.store.Delete(key); err!= nil{
+    log.Fatal(err)
+   }
     // data := bytes.NewReader([]byte("THIS LARGE FILE"))pserver
     
     // s2.Store("myprivdata", data)
 
-    // r, err := s2.Get("coolpicture.jpg")
-    // if err != nil {
-    //     log.Fatal(err)
-    // }
+    r, err := s2.Get(key)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    // b , err := ioutil.ReadAll(r)
-    // if err != nil {
-    //     log.Fatal(err)
-    // }
-    // fmt.Println(string(b))
+    b , err := ioutil.ReadAll(r)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(string(b))
 
     
 
