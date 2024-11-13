@@ -2,7 +2,6 @@ package main
 
 import (
 	"io"
-	"fmt"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -83,7 +82,6 @@ func copyEncrypt(key []byte, src io.Reader, dst io.Writer) (int, error) {
 
 		if n > 0{
 			stream.XORKeyStream(buf, buf[:n])
-			fmt.Println("buf",buf[:n])
 			nn , err := dst.Write(buf[:n])
 			if err!= nil {
 				return 0, err
