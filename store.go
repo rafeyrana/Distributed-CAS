@@ -3,12 +3,27 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 )
+
+// MetaData holds the expiry information for a key.
+type MetaData struct {
+	Expiry int64 `json:"expiry"`
+}
+
+// KeyExpiry represents a key and its expiry time.
+type KeyExpiry struct {
+	Key    string
+	Expiry int64
+}
 
 // getDefaultRootFolder returns the default storage directory.
 func getDefaultRootFolder() (string, error) {
@@ -63,10 +78,15 @@ func (p PathKey) FullPath() string {
 	return fmt.Sprintf("%s/%s", p.PathName, p.FileName)
 }
 
+// MetaPath constructs the full path for the metadata file.
+func (p PathKey) MetaPath() string {
+	return fmt.Sprintf("%s/%s.meta", p.PathName, p.FileName)
+}
+
 // StoreOpts contains options for creating a Store.
 type StoreOpts struct {
-	Root             string           // Root directory for storing files.
-	PathTransformFunc PathTransformFunc // Function to transform keys into PathKeys.
+	Root              string // Root directory for storing files.
+	PathTransformFunc PathTransformFunc
 }
 
 // DefaultPathTransformFunc is the default transformation function.
@@ -99,13 +119,29 @@ func NewStore(storeOpts StoreOpts) *Store {
 	}
 }
 
-// HasKey checks if a key exists in the store.
+// HasKey checks if a key exists in the store and is not expired.
 func (s *Store) HasKey(key string) bool {
 	pathKey := s.PathTransformFunc(key)
 	fullPath := pathKey.FullPath()
 	fullPathWithRoot := fmt.Sprintf("%s/%s", s.Root, fullPath)
+
 	_, err := os.Stat(fullPathWithRoot)
-	return !errors.Is(err, os.ErrNotExist)
+	if errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+
+	// Check for expiry
+	meta, err := s.readMetaData(key)
+	if err != nil {
+		return true // No meta file, treat as non-expiring
+	}
+
+	if meta.isExpired() {
+		s.DeleteLocal(key) // Delete if expired
+		return false
+	}
+
+	return true
 }
 
 // Clear removes all files in the store's root directory.
@@ -115,15 +151,27 @@ func (s *Store) Clear() error {
 
 // Delete removes the file associated with the given key.
 func (s *Store) Delete(key string) error {
-	path := s.PathTransformFunc(key)
-	fullPath := path.FullPath()
-	firstPath := path.FirstPathName()
-	firstPathWithRoot := fmt.Sprintf("%s/%s", s.Root, firstPath)
+	return s.DeleteLocal(key)
+}
 
-	defer func() {
-		fmt.Printf("Deleting: %s\n", fullPath)
-	}()
-	return os.RemoveAll(firstPathWithRoot)
+// DeleteLocal removes the file and its metadata associated with the given key.
+func (s *Store) DeleteLocal(key string) error {
+	pathKey := s.PathTransformFunc(key)
+
+	// Delete data file
+	dataPath := fmt.Sprintf("%s/%s", s.Root, pathKey.FullPath())
+	if err := os.Remove(dataPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete data file %s: %w", dataPath, err)
+	}
+
+	// Delete meta file
+	metaPath := fmt.Sprintf("%s/%s", s.Root, pathKey.MetaPath())
+	if err := os.Remove(metaPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete meta file %s: %w", metaPath, err)
+	}
+
+	log.Printf("TTL expired, key=%s", pathKey.FileName)
+	return nil
 }
 
 // Read retrieves the file associated with the given key.
@@ -150,12 +198,12 @@ func (s *Store) readStream(key string) (int64, io.ReadCloser, error) {
 }
 
 // Write stores the content from the provided reader associated with the key.
-func (s *Store) Write(key string, r io.Reader) (int64, error) {
-	return s.writeStream(key, r)
+func (s *Store) Write(key string, r io.Reader, ttl int64) (int64, error) {
+	return s.writeStream(key, r, ttl)
 }
 
 // WriteDecrypt stores the content from the provided reader associated with the key after decryption.
-func (s *Store) WriteDecrypt(encKey []byte, key string, r io.Reader) (int64, error) {
+func (s *Store) WriteDecrypt(encKey []byte, key string, r io.Reader, ttl int64) (int64, error) {
 	pathKey := s.PathTransformFunc(key)
 	pathNameWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.PathName)
 
@@ -169,10 +217,17 @@ func (s *Store) WriteDecrypt(encKey []byte, key string, r io.Reader) (int64, err
 	if err != nil {
 		return 0, fmt.Errorf("error creating file %s: %w", fullPathAndFilenameWithRoot, err)
 	}
+	defer f.Close()
 
 	n, err := copyDecrypt(encKey, r, f)
 	if err != nil {
 		return 0, fmt.Errorf("error copying decrypted content to file: %w", err)
+	}
+
+	if ttl > 0 {
+		if err := s.writeMetaData(key, time.Now().Unix()+ttl); err != nil {
+			return 0, fmt.Errorf("failed to write metadata for key %s: %w", key, err)
+		}
 	}
 
 	fmt.Printf("Written (%d) bytes to disk: %s\n", n, fullPathAndFilenameWithRoot)
@@ -180,7 +235,7 @@ func (s *Store) WriteDecrypt(encKey []byte, key string, r io.Reader) (int64, err
 }
 
 // writeStream writes the content from the provided reader associated with the key.
-func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
+func (s *Store) writeStream(key string, r io.Reader, ttl int64) (int64, error) {
 	pathKey := s.PathTransformFunc(key)
 	pathNameWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.PathName)
 
@@ -194,11 +249,76 @@ func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error creating file %s: %w", fullPathAndFilenameWithRoot, err)
 	}
+	defer f.Close()
 
 	n, err := io.Copy(f, r)
 	if err != nil {
 		return 0, fmt.Errorf("error writing to file %s: %w", fullPathAndFilenameWithRoot, err)
 	}
 
+	if ttl > 0 {
+		if err := s.writeMetaData(key, time.Now().Unix()+ttl); err != nil {
+			return 0, fmt.Errorf("failed to write metadata for key %s: %w", key, err)
+		}
+	}
+
 	return n, nil
+}
+
+// ListKeys scans the directory tree and returns keys with their expiry.
+func (s *Store) ListKeys() ([]KeyExpiry, error) {
+	var keys []KeyExpiry
+	err := filepath.Walk(s.Root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && !strings.HasSuffix(info.Name(), ".meta") {
+			// Assumes the filename is the key. This might need adjustment
+			// based on the actual key-to-filename mapping.
+			key := info.Name()
+			meta, err := s.readMetaData(key)
+			if err != nil {
+				// No meta file, treat as non-expiring
+				keys = append(keys, KeyExpiry{Key: key, Expiry: 0})
+			} else {
+				keys = append(keys, KeyExpiry{Key: key, Expiry: meta.Expiry})
+			}
+		}
+		return nil
+	})
+	return keys, err
+}
+
+func (s *Store) writeMetaData(key string, expiry int64) error {
+	pathKey := s.PathTransformFunc(key)
+	metaPath := fmt.Sprintf("%s/%s", s.Root, pathKey.MetaPath())
+
+	meta := MetaData{Expiry: expiry}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	return os.WriteFile(metaPath, data, 0644)
+}
+
+func (s *Store) readMetaData(key string) (*MetaData, error) {
+	pathKey := s.PathTransformFunc(key)
+	metaPath := fmt.Sprintf("%s/%s", s.Root, pathKey.MetaPath())
+
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var meta MetaData
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	return &meta, nil
+}
+
+func (m *MetaData) isExpired() bool {
+	return m.Expiry > 0 && time.Now().Unix() > m.Expiry
 }

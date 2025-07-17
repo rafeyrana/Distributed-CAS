@@ -14,32 +14,36 @@ import (
 )
 
 type FileServerOpts struct {
-	ListenAddress       string
-	EncKey              []byte
-	StorageRoot         string
-	PathTransformFunc   PathTransformFunc
-	Transport           p2p.Transport
-	BootstrapNodes      []string
+	ListenAddress     string
+	EncKey            []byte
+	StorageRoot       string
+	PathTransformFunc PathTransformFunc
+	Transport         p2p.Transport
+	BootstrapNodes    []string
+	DefaultTTLSeconds int64
 }
 
 type FileServer struct {
 	FileServerOpts
-	peerLock sync.Mutex
-	peers    map[string]p2p.Peer
-	store    *Store
-	quitchan chan struct{}
+	peerLock     sync.Mutex
+	peers        map[string]p2p.Peer
+	store        *Store
+	quitchan     chan struct{}
+	expiryIndex  map[string]int64
+	expiryLock   sync.RWMutex
 }
 
 func NewFileServer(opts FileServerOpts) *FileServer {
 	storeOpts := StoreOpts{
-		Root:               opts.StorageRoot,
-		PathTransformFunc:  opts.PathTransformFunc,
+		Root:              opts.StorageRoot,
+		PathTransformFunc: opts.PathTransformFunc,
 	}
 	return &FileServer{
 		FileServerOpts: opts,
 		store:          NewStore(storeOpts),
-		quitchan:      make(chan struct{}),
-		peers:         make(map[string]p2p.Peer),
+		quitchan:       make(chan struct{}),
+		peers:          make(map[string]p2p.Peer),
+		expiryIndex:    make(map[string]int64),
 	}
 }
 
@@ -96,10 +100,15 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 		return fmt.Errorf("peer not found: %s", from)
 	}
 
-	n, err := s.store.Write(msg.Key, io.LimitReader(peer, int64(msg.Size)))
+	n, err := s.store.Write(msg.Key, io.LimitReader(peer, int64(msg.Size)), msg.TTL)
 	if err != nil {
 		return fmt.Errorf("error writing file %s to disk: %w", msg.Key, err)
 	}
+
+	s.expiryLock.Lock()
+	s.expiryIndex[msg.Key] = msg.Expiry
+	s.expiryLock.Unlock()
+
 	fmt.Printf("Wrote %d bytes to disk at address: [%s]\n", n, s.Transport.Addr())
 	peer.CloseStream()
 	return nil
@@ -159,8 +168,10 @@ type Message struct {
 }
 
 type MessageStoreFile struct {
-	Key  string
-	Size int64
+	Key    string
+	Size   int64
+	TTL    int64 // seconds supplied by sender
+	Expiry int64 // unix seconds, authoritative
 }
 
 type MessageGetFile struct {
@@ -193,7 +204,7 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 			return nil, fmt.Errorf("error reading file size from peer %s: %w", peer.RemoteAddr(), err)
 		}
 
-		n, err := s.store.WriteDecrypt(s.EncKey, key, io.LimitReader(peer, fileSize))
+		n, err := s.store.WriteDecrypt(s.EncKey, key, io.LimitReader(peer, fileSize), 0)
 		if err != nil {
 			return nil, fmt.Errorf("error writing decrypted file %s: %w", key, err)
 		}
@@ -206,36 +217,49 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 	return r, err
 }
 
-func (s *FileServer) Store(key string, r io.Reader) error {
-	// Store this file on disk and broadcast to all known peers
+func (s *FileServer) Store(key string, r io.Reader, ttlSecs int64) error {
+	if ttlSecs < 0 {
+		return fmt.Errorf("TTL cannot be negative")
+	}
+
+	if ttlSecs == 0 {
+		ttlSecs = s.DefaultTTLSeconds
+	}
+
 	var (
 		fileBuf = new(bytes.Buffer)
 		tee     = io.TeeReader(r, fileBuf)
 	)
 
-	// Store to the local disk
-	size, err := s.store.Write(key, tee)
+	size, err := s.store.Write(key, tee, ttlSecs)
 	if err != nil {
 		return fmt.Errorf("error storing file %s: %w", key, err)
 	}
 
-	// Create a message
+	expiry := int64(0)
+	if ttlSecs > 0 {
+		expiry = time.Now().Unix() + ttlSecs
+	}
+
+	s.expiryLock.Lock()
+	s.expiryIndex[key] = expiry
+	s.expiryLock.Unlock()
+
 	msg := Message{
 		Payload: MessageStoreFile{
-			Key:  key,
-			Size: size + 16, // 16 bytes for the IV encryption header
+			Key:    key,
+			Size:   size + 16, // 16 bytes for the IV encryption header
+			TTL:    ttlSecs,
+			Expiry: expiry,
 		},
 	}
 
-	fmt.Printf("Payload: %v\n", msg)
-	// Send message to all peers
 	if err := s.broadcast(&msg); err != nil {
 		return fmt.Errorf("error broadcasting store message for key %s: %w", key, err)
 	}
 
 	time.Sleep(1 * time.Millisecond)
 
-	// Send the incoming stream byte and then the file size to peers
 	for _, peer := range s.peers {
 		if err := peer.Send([]byte{p2p.IncomingStream}); err != nil {
 			return fmt.Errorf("error sending incoming stream byte to peer: %w", err)
@@ -278,18 +302,61 @@ func (s *FileServer) OnPeer(p p2p.Peer) error {
 	return nil
 }
 
+func (s *FileServer) scheduler() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			s.expiryLock.Lock()
+			for key, expiry := range s.expiryIndex {
+				if expiry > 0 && time.Now().Unix() > expiry {
+					s.store.DeleteLocal(key)
+					delete(s.expiryIndex, key)
+				}
+			}
+			s.expiryLock.Unlock()
+		case <-s.quitchan:
+			return
+		}
+	}
+}
+
 func (s *FileServer) Start() error {
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		return fmt.Errorf("error starting transport: %w", err)
 	}
 
+	s.populateExpiryIndex()
+	go s.scheduler()
+
 	if err := s.BootstrapNetwork(); err != nil {
 		return fmt.Errorf("error bootstrapping network: %w", err)
 	}
 
-	// Start the main loop
 	s.loop()
 	return nil
+}
+
+func (s *FileServer) populateExpiryIndex() {
+	keys, err := s.store.ListKeys()
+	if err != nil {
+		log.Printf("Failed to list keys for expiry index: %v", err)
+		return
+	}
+
+	s.expiryLock.Lock()
+	defer s.expiryLock.Unlock()
+	for _, keyExpiry := range keys {
+		if keyExpiry.Expiry > 0 {
+			if time.Now().Unix() > keyExpiry.Expiry {
+				s.store.DeleteLocal(keyExpiry.Key)
+			} else {
+				s.expiryIndex[keyExpiry.Key] = keyExpiry.Expiry
+			}
+		}
+	}
 }
 
 func init() {
