@@ -32,7 +32,7 @@ func TestDelete(t *testing.T) {
 	s := NewStore(opts)
 	key := "myspecialpictures"
 	data := []byte("some jpeg bytes")
-	_, err := s.writeStream(key, bytes.NewReader(data))
+	_, err := s.writeStream(key, bytes.NewReader(data), 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -67,7 +67,7 @@ func TestStore(t *testing.T) {
 	for i := 0; i < count; i++ {
 	key := fmt.Sprintf("mykey%d", i)
 	data := []byte("some jpeg bytes")
-	_, err := s.writeStream(key, bytes.NewReader(data))
+	_, err := s.writeStream(key, bytes.NewReader(data), 0)
 	if err != nil {
 		t.Error(err)
 	}
