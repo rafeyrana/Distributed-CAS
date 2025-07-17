@@ -185,3 +185,87 @@ func TestOfflineDeletion(t *testing.T) {
 		t.Errorf("expected log output to contain %q, but it was %q", expectedLog, logOutput)
 	}
 }
+
+func TestTTLWithOneSecond(t *testing.T) {
+	opts := ServerOpts{}
+	s := makeServer(":3006", []string{}, opts)
+	go s.Start()
+	defer s.Stop()
+
+	key := "one-second-ttl"
+	data := []byte("test data")
+	ttl := 1 * time.Second
+
+	err := s.Store(key, bytes.NewReader(data), int64(ttl.Seconds()))
+	if err != nil {
+		t.Fatalf("Store() error = %v", err)
+	}
+
+	time.Sleep(ttl + 1*time.Second)
+
+	if s.store.HasKey(key) {
+		t.Errorf("key %q should have been expired and deleted", key)
+	}
+}
+
+func TestMultipleKeysWithDifferentTTLs(t *testing.T) {
+	opts := ServerOpts{}
+	s := makeServer(":3007", []string{}, opts)
+	go s.Start()
+	defer s.Stop()
+
+	keys := []string{"key1", "key2", "key3"}
+	ttls := []time.Duration{2 * time.Second, 4 * time.Second, 6 * time.Second}
+	data := []byte("test data")
+
+	for i, key := range keys {
+		err := s.Store(key, bytes.NewReader(data), int64(ttls[i].Seconds()))
+		if err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+	}
+
+	time.Sleep(3 * time.Second)
+	if !s.store.HasKey(keys[1]) {
+		t.Errorf("key %q should not have been expired yet", keys[1])
+	}
+	if !s.store.HasKey(keys[2]) {
+		t.Errorf("key %q should not have been expired yet", keys[2])
+	}
+
+	time.Sleep(4 * time.Second)
+	if s.store.HasKey(keys[1]) {
+		t.Errorf("key %q should have been expired and deleted", keys[1])
+	}
+	if s.store.HasKey(keys[2]) {
+		t.Errorf("key %q should have been expired and deleted", keys[2])
+	}
+}
+
+func TestUpdateTTL(t *testing.T) {
+	opts := ServerOpts{}
+	s := makeServer(":3008", []string{}, opts)
+	go s.Start()
+	defer s.Stop()
+
+	key := "update-ttl"
+	data := []byte("test data")
+	ttl1 := 2 * time.Second
+	ttl2 := 5 * time.Second
+
+	err := s.Store(key, bytes.NewReader(data), int64(ttl1.Seconds()))
+	if err != nil {
+		t.Fatalf("Store() error = %v", err)
+	}
+
+	err = s.Store(key, bytes.NewReader(data), int64(ttl2.Seconds()))
+	if err != nil {
+		t.Fatalf("Store() error = %v", err)
+	}
+
+	time.Sleep(3 * time.Second)
+
+	if !s.store.HasKey(key) {
+		t.Errorf("key %q should not have been expired yet", key)
+	}
+}
