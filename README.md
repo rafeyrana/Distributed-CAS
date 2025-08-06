@@ -23,5 +23,6 @@ Incorporates encryption mechanisms to secure files during transit and storage.
 Allows setting a time-to-live (TTL) for each key, after which the file is automatically deleted from the system.
 
 ## Future Work:
-1. Support for other transport protocols (e.g., WebSockets)
-2. Implementing a distributed hash table (DHT) for peer discovery and routing.
+1. Benchmarking
+2. Support for other transport protocols (e.g., WebSockets)
+3. Implementing a distributed hash table (DHT) for peer discovery and routing.
